@@ -42,6 +42,13 @@ def _configure_inference_logging(device: str) -> None:
         logging.getLogger("transformers.integrations.hub_kernels").setLevel(logging.ERROR)
 
 
+def resolve_device(device: str | None) -> str:
+    """Pick the torch device and silence the hub_kernels noise it would otherwise emit."""
+    selected = device or _auto_device()
+    _configure_inference_logging(selected)
+    return selected
+
+
 # ---------------------------------------------------------------- serve / ask
 
 
@@ -79,8 +86,7 @@ def serve_cmd(
     """Serve POST /v1/systemone. JevBench's typesafe adapter runs against it unchanged."""
     from .server import serve
 
-    selected_device = device or _auto_device()
-    _configure_inference_logging(selected_device)
+    selected_device = resolve_device(device)
     console.print(f"[green]serving[/] {checkpoint} on http://{host}:{port} ({selected_device})")
     serve(
         checkpoint, host=host, port=port, device=selected_device,
@@ -134,8 +140,7 @@ def ask_cmd(
     if not questions:
         raise typer.BadParameter("ask at least one --noul / --choice / --score question")
 
-    selected_device = device or _auto_device()
-    _configure_inference_logging(selected_device)
+    selected_device = resolve_device(device)
     if image:
         import base64
 

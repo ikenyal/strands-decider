@@ -498,14 +498,21 @@ def eval_cmd(
         "test",
         help="Half of --data to score: test|calib|all. Disjoint from `calibrate`.",
     ),
+    device: str | None = typer.Option(
+        None, "--device",
+        help="cuda, mps or cpu (torch). Auto-detected when omitted: cuda > mps > cpu.",
+    ),
 ) -> None:
     """Accuracy, ECE, NLL and score MAE, broken down by task and confidence band.
 
     Defaults to the `test` half, which `python -m training.evaluate calibrate` does not fit on.
     """
+    from strands_decider.cli import resolve_device
+
     examples = sample_examples(partition_examples(list(read_jsonl(data)), split), limit)
     report = evaluate_checkpoint(
-        checkpoint, examples, batch_size=batch_size, apply_temperature=not raw
+        checkpoint, examples, batch_size=batch_size, apply_temperature=not raw,
+        device=resolve_device(device),
     )
     overall = report["overall"]
     console.print(
@@ -546,6 +553,10 @@ def calibrate_cmd(
         "calib",
         help="Half of --data to use: calib|test|all. Disjoint from `eval --split test`.",
     ),
+    device: str | None = typer.Option(
+        None, "--device",
+        help="cuda, mps or cpu (torch). Auto-detected when omitted: cuda > mps > cpu.",
+    ),
 ) -> None:
     """Fit a temperature on held-out data and write it into the checkpoint.
 
@@ -555,8 +566,12 @@ def calibrate_cmd(
     Defaults to the `calib` half so that `python -m training.evaluate eval --split test`
     scores rows the temperature was never fitted on.
     """
+    from strands_decider.cli import resolve_device
+
     examples = sample_examples(partition_examples(list(read_jsonl(data)), split), limit)
-    result = calibrate_checkpoint(checkpoint, examples, batch_size=batch_size)
+    result = calibrate_checkpoint(
+        checkpoint, examples, batch_size=batch_size, device=resolve_device(device),
+    )
     console.print(f"[green]global temperature = {result['temperature']:.4f}[/]")
     by_kind = result.get("temperature_by_kind") or {}
     if by_kind:
